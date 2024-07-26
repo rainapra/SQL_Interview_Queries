@@ -1,0 +1,282 @@
+Q: Top 2 Departments with highest count of students
+
+students:
+id,name,dept_id
+-------
+1,Steve,101
+2,Tony,102
+3,Bruce,101
+4,Clint,103
+5,Joey,102
+6,Matt,101
+-------
+ 
+ 
+departments:
+dept_id,dept_name
+-------
+101,CS
+102,IT
+103,ECE
+104,ME
+-------
+
+select d.dept_name, coalesece(count(s.id),0)
+from students s right join departments d
+ON s.dept_id = d.dept_id
+group by d.dept_id
+order by count(s.id) desc 
+LIMIT 2
+
+select dept_id, coalesce(count_total,0) from 
+(select d.dept_id, d.name, count(s.id) as count_total, dense_rank() over (partition by d.dept_id, order by count(s.id) desc)cnt
+ from students s right join departments d
+ ON s.dept_id = d.dept_id)a
+where cnt < 3
+
+
+Q: Find the five lowest-paid employees who have completed at least three projects.
+
+Note: We consider projects to be completed when they have an end date, which is the same as saying their End_dt is not NULL.
+employees table
+
+id	salary
+INTEGER	FLOAT
+projects table
+
+employee_id	project_id	Start_dt	End_dt
+INTEGER	INTEGER	DATETIME	DATETIME
+
+
+select e.id
+from employees e JOIN projects p
+ON e.id = p.employee_id
+group by e.id
+having count(p.project_id)>=3
+and p.End_dt is not null
+order by e.salary
+LIMIT 5
+
+
+Q: Find the customers who have 2 consecutive orders
+
+Table orders -- OrderId, OrdeDate, CustomerId
+
+select o1.customerID
+from orders o1,o2
+where o1.customerID = o2.customerID
+and  o1.OrderDate = o2.OrderDate + 1
+and OrderId is NOT NULL
+
+
+Q: Countries 
+
+ID Country
+1 India
+2 Pakistan
+3 Srilanka
+4 Australia
+
+Output: team1    team2
+        India    Pakistan
+        India    Srilanka
+        India    Australia
+        Pakistan Srilanka
+        Pakistan Australia
+        Srilanka Australia
+
+With cte as(select case when country = "India" then 1 
+            when country = "Pakistan" then 2
+            when country = "Srilanka" then 3
+            when country = "Australia" then 4
+       else 0 end as ID, country
+from Table)
+
+Select c1.country, c2.country
+from cte c1,c2
+where c1.country <> c2.country
+and c1.ID < c2.ID
+
+
+Q: Get the employee details who has higher salary than his manager
+
+E_ID	E_name	Dept	Salary	Manager_id
+1	Sara	A	25000	2
+2	Harsha	B	45000	5
+3	Rithvik  	A	30000	5
+4	Kiana	A	35000	2
+5	Varsha	B	40000	4
+
+
+Select e_name
+From employee e1, e2
+where e1.manager_id = e2.e_id
+and e1.salaray > e2.salary
+
+Q: Find customer having highest total order for each month in the year 2023
+cid,  pid,  date, amount
+
+select month(date), cid, high_amount from (
+                select *, sum(amount) as high_amount, dense_rank() over (partition by month(date), order by sum(amount) desc) rn
+                from table
+                where YEAR(date) = ”2023”)a
+group by month(date), cid
+where rn = 1
+
+
+Q: Query to obtain the third transaction of every user. Output the user id, spend and transaction date.
+
+user_id	spend	transaction_date
+111	100.50	01/08/2022 12:00:00
+111	55.00	01/10/2022 12:00:00
+121	36.00	01/18/2022 12:00:00
+145	24.99	01/26/2022 12:00:00
+111	89.60	02/05/2022 12:00:00
+
+
+select user_id, spend, transaction_date from
+   (select user_id, spend, transaction_date, row_number() over (partition by user_id, order by transaction_date)rn
+    from Table)T
+where rn = 3
+
+
+Q: Find average delay between the day of user sign-up and the day of their 2nd ride.
+
+user_id	registration_date
+1	08/15/2022
+2	08/21/2022
+
+ride_id	user_id	ride_date
+1	1	08/15/2022
+2	1	08/16/2022
+3	2	09/20/2022
+4	2	09/23/2022
+
+
+
+With cte_ride as (select user_id, ride_date, row_number() over (partition by user_id, order by ride_date)rn 
+             from ride)
+       
+select avg(ride_date - registration date)
+from user u LEFT JOIN cte c
+ON u.user_id = c.user_id
+where cte_ride.rn = 2
+
+
+Q: Query that filters out the most used vehicle type by Uber's customers in the past year. To provide a more holistic view, the results should also exclude rides that were cancelled by either the driver or the user.
+
+Ride
+ride_id	user_id	vehicle_type_id	start_time	end_time	cancelled
+88031	61023	5	2021-07-01 08:15:00	2021-07-01 08:45:00	false
+88032	61024	1	2021-07-01 09:15:00	2021-07-01 09:45:00	false
+88033	61025	2	2021-07-01 10:15:00	2021-07-01 10:45:00	true
+88034	61026	5	2021-07-01 11:15:00	2021-07-01 11:45:00	false
+88035	61027	3	2021-07-01 12:15:00	2021-07-01 12:45:00	false
+
+Vehicle
+type_id	vehicle_type
+1	Bike
+2	Car
+3	SUV
+4	Luxury Car
+5	Scooter
+
+
+select v.vehicle_type, count(r.vehicle_type_id)as total_count
+from vehicle v LEFT JOIN ride r
+ON v.type_id = r.vehicle_type_id
+where r.cancelled = false
+and r.start_time >= (NOW() - INTERVAL '1 YEAR')
+group by v.vehicle_type
+order by total_count DESC
+LIMIT 1
+
+
+Q: click-through conversion rate for each ad, which is the number of bookings made after viewing an ad, divided by the total number of clicks for that ad
+
+Ads
+click_id user_id ad_id	click_date
+101	7	500	07/01/2022 00:00:00
+102	8	600	07/02/2022 00:00:00
+103	7	500	07/03/2022 00:00:00
+104	8	600	07/04/2022 00:00:00
+105	9	700	07/05/2022 00:00:00
+
+Booking
+book_id user_id	booking_date
+201	7	07/01/2022 00:00:00
+202	7	07/03/2022 00:00:00
+203	9	07/05/2022 00:00:00
+204	10	07/06/2022 00:00:00
+
+
+select a.ad_id, count(b.user_id)/count(a.user_id) as ctc
+from Ads a LEFT JOIN Booking b
+ON a.user_id = b.user_id
+AND a.click_date < b.booking_date
+group by a.ad_id
+
+
+Q: determine each driver's average ratings for each city
+
+ratings
+ride_id	driver_id	city	fare_amount
+101	201	New York	25.50
+102	202	San Francisco	18.00
+103	203	Chicago	        22.75
+104	201	San Francisco	30.00
+105	202	New York	20.00
+
+rides
+ride_id	rating
+101	4.3
+102	4.1
+103	4.8
+104	4.7
+105	3.9
+
+select r.driver_id, r.city, avg(rd.rating)
+from ratings r JOIN rides rd
+ON r.ride_id = rd.ride_id
+group by r.driver_id, r.city
+
+
+Q: query that filters only those records where the 'email' field contains 'gmail.com'
+
+users
+user_id	full_name	registration_date	email
+7162	John Doe	05/04/2019	johndoe@gmail.com
+7625	Jane Smith	11/09/2020	janesmith@yahoo.com
+5273	Steve Johnson	06/20/2018	stevejohnson@gmail.com
+6322	Emily Davis	08/14/2021	emilydavis@hotmail.com
+4812	Olivia Brown	09/30/2019	oliviabrown@gmail.com
+
+select * from users
+where email LIKE '%gmail.com'
+
+
+Q: Find the top 3 business purpose categories by total mileage.
+
+uber_drives
+start_date	         end_date	        category	start	        stop	        miles	purpose
+2016-01-01 21:11:00	2016-01-01 21:17:00	Business	Fort Pierce	Fort Pierce	5.1	Meal/Entertain
+2016-01-02 01:25:00	2016-01-02 01:37:00	Business	Fort Pierce	Fort Pierce	5	
+2016-01-02 20:25:00	2016-01-02 20:38:00	Business	Fort Pierce	Fort Pierce	4.8	Errand/Supplies
+2016-01-05 17:31:00	2016-01-05 17:45:00	Business	Fort Pierce	Fort Pierce	4.7	Meeting
+2016-01-06 14:42:00	2016-01-06 15:49:00	Business	Fort Pierce	West Palm Beach	63.7	Customer Visit
+
+
+select purpose, sum(miles) as total_mileage
+from uber_drives
+where category = "Business"
+AND purpose is NOT NULL
+group by purpose
+order by total_mileage desc
+LIMIT 3
+
+select coalesce(purpose, NULL), total_mileage from (
+select purpose, sum(miles) as total_mileage, dense_rank() over (partition by purpose, order by sum(miles) desc)rn
+from uber_drives
+where category = "Business"
+AND purpose is NOT NULL)a
+where rn <=3
