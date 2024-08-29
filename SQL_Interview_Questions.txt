@@ -1,4 +1,4 @@
-Q: Top 2 Departments with highest count of students
+Q:1 Top 2 Departments with highest count of students
 
 students:
 id,name,dept_id
@@ -31,11 +31,12 @@ LIMIT 2
 select dept_id, coalesce(count_total,0) from 
 (select d.dept_id, d.name, count(s.id) as count_total, dense_rank() over (partition by d.dept_id, order by count(s.id) desc)cnt
  from students s right join departments d
- ON s.dept_id = d.dept_id)a
+ ON s.dept_id = d.dept_id
+group by d.dept_id, d.name )a
 where cnt < 3
 
 
-Q: Find the five lowest-paid employees who have completed at least three projects.
+Q:2 Find the five lowest-paid employees who have completed at least three projects.
 
 Note: We consider projects to be completed when they have an end date, which is the same as saying their End_dt is not NULL.
 employees table
@@ -58,7 +59,7 @@ order by e.salary
 LIMIT 5
 
 
-Q: Find the customers who have 2 consecutive orders
+Q:3 Find the customers who have 2 consecutive orders
 
 Table orders -- OrderId, OrdeDate, CustomerId
 
@@ -69,7 +70,7 @@ and  o1.OrderDate = o2.OrderDate + 1
 and OrderId is NOT NULL
 
 
-Q: Countries 
+Q:4 Countries 
 
 ID Country
 1 India
@@ -98,7 +99,7 @@ where c1.country <> c2.country
 and c1.ID < c2.ID
 
 
-Q: Get the employee details who has higher salary than his manager
+Q:5 Get the employee details who has higher salary than his manager
 
 E_ID	E_name	Dept	Salary	Manager_id
 1	Sara	A	25000	2
@@ -113,18 +114,18 @@ From employee e1, e2
 where e1.manager_id = e2.e_id
 and e1.salaray > e2.salary
 
-Q: Find customer having highest total order for each month in the year 2023
+Q:6 Find customer having highest total order for each month in the year 2023
 cid,  pid,  date, amount
 
 select month(date), cid, high_amount from (
                 select *, sum(amount) as high_amount, dense_rank() over (partition by month(date), order by sum(amount) desc) rn
                 from table
-                where YEAR(date) = ”2023”)a
-group by month(date), cid
+                where YEAR(date) = ”2023”
+                group by month(date), cid)a
 where rn = 1
 
 
-Q: Query to obtain the third transaction of every user. Output the user id, spend and transaction date.
+Q:7 Query to obtain the third transaction of every user. Output the user id, spend and transaction date.
 
 user_id	spend	transaction_date
 111	100.50	01/08/2022 12:00:00
@@ -140,7 +141,7 @@ select user_id, spend, transaction_date from
 where rn = 3
 
 
-Q: Find average delay between the day of user sign-up and the day of their 2nd ride.
+Q:8 Find average delay between the day of user sign-up and the day of their 2nd ride.
 
 user_id	registration_date
 1	08/15/2022
@@ -163,7 +164,7 @@ ON u.user_id = c.user_id
 where cte_ride.rn = 2
 
 
-Q: Query that filters out the most used vehicle type by Uber's customers in the past year. To provide a more holistic view, the results should also exclude rides that were cancelled by either the driver or the user.
+Q:9 Query that filters out the most used vehicle type by Uber's customers in the past year. To provide a more holistic view, the results should also exclude rides that were cancelled by either the driver or the user.
 
 Ride
 ride_id	user_id	vehicle_type_id	start_time	end_time	cancelled
@@ -192,7 +193,7 @@ order by total_count DESC
 LIMIT 1
 
 
-Q: click-through conversion rate for each ad, which is the number of bookings made after viewing an ad, divided by the total number of clicks for that ad
+Q:10 click-through conversion rate for each ad, which is the number of bookings made after viewing an ad, divided by the total number of clicks for that ad
 
 Ads
 click_id user_id ad_id	click_date
@@ -217,7 +218,7 @@ AND a.click_date < b.booking_date
 group by a.ad_id
 
 
-Q: determine each driver's average ratings for each city
+Q:11 determine each driver's average ratings for each city
 
 ratings
 ride_id	driver_id	city	fare_amount
@@ -241,7 +242,7 @@ ON r.ride_id = rd.ride_id
 group by r.driver_id, r.city
 
 
-Q: query that filters only those records where the 'email' field contains 'gmail.com'
+Q:12 query that filters only those records where the 'email' field contains 'gmail.com'
 
 users
 user_id	full_name	registration_date	email
@@ -255,7 +256,7 @@ select * from users
 where email LIKE '%gmail.com'
 
 
-Q: Find the top 3 business purpose categories by total mileage.
+Q:13 Find the top 3 business purpose categories by total mileage.
 
 uber_drives
 start_date	         end_date	        category	start	        stop	        miles	purpose
@@ -274,9 +275,265 @@ group by purpose
 order by total_mileage desc
 LIMIT 3
 
-select coalesce(purpose, NULL), total_mileage from (
+select purpose, total_mileage from (
 select purpose, sum(miles) as total_mileage, dense_rank() over (partition by purpose, order by sum(miles) desc)rn
 from uber_drives
 where category = "Business"
 AND purpose is NOT NULL)a
 where rn <=3
+
+Q:14 cancellation rate of requests with unbanned users (both client and driver must not be banned) each day between "2013-10-01" and "2013-10-03"
+
+Trips
+Column Name  Type     
+Id           int      
+Client_Id    int      
+Driver_Id    int      
+City_Id      int      
+Status       enum     
+Request_at   date
+       
+Users
+Column Name  Type     
+Users_Id     int      
+Banned       enum     
+Role         enum     
+
+select request_at, ROUND(SUM(IF(Status <> 'completed', 1, 0))/ count(Status),2) as cancellation rate
+from Trips
+where Request_at between "2013-10-01" and "2013-10-03"
+and Client_Id not in (select users_id from Users where banned = "Yes")
+and Driver_Id not in (select users_id from Users where banned = "Yes")
+group by request_at
+
+Q:15 first login date for each player
+
+Activity table:
+
+player_id  device_id  event_date  games_played 
+ 1          2          2016-03-01  5            
+ 1          2          2016-05-02  6            
+ 2          3          2017-06-25  1            
+ 3          1          2016-03-02  0            
+ 3          4          2018-07-03  5            
+
+select player_id, MIN(event_date)
+from Activity
+group by player_id
+
+Q:16 reports the device that is first logged in for each player
+
+select distinct player_id, device_id
+from Activity
+where (player_id, event_date) IN (select player_id, MIN(event_date)
+                                from Activity
+                                group by player_id
+
+Q:17 reports for each player and date, how many games played so
+ far by the player. That is, the total number of games played by the player until that date.
+
+select player_id, event_date, SUM(games_played) as games_play
+from Activity a, b
+where a.event_date >= b.event_date
+group by player_id, event_date
+
+Select player_id, event_date, SUM(games_played) over (partition by player_id order by event_date) as games_play
+from Activity
+
+
+Q:18 reports the fraction of players that logged in again on the day
+ after the day they first logged in, rounded to 2 decimal places. In other words, you need
+ to count the number of players that logged in for at least two consecutive days starting
+ from their first login date, then divide that number by the total number of players.
+
+With cte as(select player_id, MIN(event_date)
+            from Activity
+            group by player_id)
+
+select ROUND(count(cte.player_id)/count(b.player_id),2)
+from cte a LEFT JOIN Activity b
+ON a.player_id = b.player_id
+where datediff(a.event_date,b.event_date) = 1
+
+Q:19 Write a SQL query to find all duplicate emails in a table named Person
+
+ Id  Email   
+ 1   a@b.com 
+ 2   c@d.com 
+ 3   a@b.com 
+
+select Email
+from Person
+group by Email
+having count(Email)>1
+
+Q:20 Write a SQL query to find all customers who never order anything.
+
+Customers
+
+ Id  Name
+ 1   Joe   
+ 2   Henry 
+ 3   Sam   
+ 4   Max   
+ 
+Orders
+
+ Id  CustomerId 
+ 1   3          
+ 2   1         
+
+select Name
+from Customer 
+where Id NOT IN (Select CustomerId from Orders)
+
+Q:21  Write a SQL query to find employees who have the highest salary in each of the
+ departments.
+
+select d.Name as Department, e.Name as Employee, Salary from (
+select *, dense_rank() over (partition by DepartmentId order by Salary desc)rn
+from Employee)e JOIN Department d
+ON e.DepartmentId = d.Id
+where rn =1
+
+Q:22 Write an SQL query to find all dates' id with higher temperature compared to its
+ previous dates (yesterday)
+
+Weather:
+
+Id, recordDate, Temp
+
+Select w2.Id
+from Weather w1,w2
+where datediff(w2.recordDate, w1.recordDate) = 1
+and w2.Temp > w1.Temp
+
+Q:23 Write a SQL query to find the median salary of each company without using inbuilt function of SQL
+
+Employee
+Id   company   salary
+
+with cte as (Select *, row_number() over (partition by company order by salary)rn , count(Id) over (partition by company)n
+from Employee)
+
+select company, avg(salary)
+from cte
+where ((rn = n/2 or rn = n/2 + 1) and n%2 = 0)
+or (rn = (n+1)/2 and (n%2 <> 0))
+group by company
+
+Q:24 write a SQL query that finds out managers with at least 5
+ direct report
+
+Select Name 
+from Employee
+where ID in (Select Manager_id
+             from Employee
+             group by Manager_id
+             having count(Distinct Id)>=5)
+
+Q:25 Write a sql to find the name of the winning candidate
+
+Candidate
+Id  Name
+
+Vote
+Id CandidateId
+
+select Name
+from Candidate
+where Id IN (select CandidateId
+             from Vote
+             group by CandidateId
+             order by count(CandidateId) desc
+             LIMIT 1)
+
+With cte as(Select *, count(candidateId), dense_rank() over (order by count(candidateId) desc)rn 
+from Vote
+group by candidateId)
+
+select c.Name
+from Candidate c JOIN cte t
+ON c.Id = t.CandidateId
+where t.rn = 1
+
+Q:26 Write a sql query to identify the question which has the highest answer rate(answer / show)
+
+ uid  action  question_id  answer_id  q_num   timestamp
+
+ 5    show     285          null        1      123        
+ 5    answer   285          124124      1      124        
+ 5    show     369          null        2      125       
+ 5    skip     369          null        2      126        
+
+select question_id, SUM(IF action = "answer", 1, 0)/ SUM(IF action = "show", 1, 0) as answer_rate
+from survey_log
+where answer_id is NOT NULL
+group by question_id
+order by answer_rate desc
+LIMIT 1
+
+Q:27 Write a SQL to get the cumulative sum of an employee’s salary over a period of 3 months
+ but exclude the most recent month
+
+Employee
+id month salary
+
+select e1.id, e2.month, SUM(e2.salary) as cum_salary
+from Employee e1 JOIN e2
+ON e1.id = e2.id
+where e1.month - e2.month >= 0
+and e1.month - e2.month < 3
+group by e1.id, e2.month
+having e.id, e.month NOT IN (select id, MAX(month) from Employee group by id)
+order by e.id, e.month desc
+
+Q:28  Write a query to print the respective department name and number of students
+ majoring in each department for all departments in the department table
+
+student   
+id, name, gender, dept_id
+
+department
+dept_id, dept_name
+
+select d.dept_name, SUM(IF s.id = NULL, 0, 1) as student_count
+from student s RIGHT JOIN department d
+ON s.dept_id = d.dept_id
+group by d.dept_name
+order by student_count desc, d.dept_name
+
+Q:29 Write a query to return the list of customers NOT referred by the person with id ‘2’
+
+ id    name  referee_id
+
+  1  Will    NULL 
+  2  Jane    NULL 
+  3  Alex    2 
+  4  Bill    NULL
+  5  Zack    1
+  6  Mark    2 
+
+select name
+from customers
+where referee_id <> 2 or referee_id is NULL
+
+Q:30 Write a query to print the sum of all total investment values in 2016 (TIV_2016), to a
+ scale of 2 decimal places, for all policy holders who meet the following criteria:
+ 1. Have the same TIV_2015 value as one or more other policyholders.
+ 2. Are not located in the same city as any other policyholder (i.e.: the (latitude,
+ longitude) attribute pairs must be unique).
+
+select ROUND(SUM(TIV_2016),2) as Total_investment
+from Insurance
+where CONCAT(LAT, '' ,LON) IN (select CONCAT(LAT, '' ,LON)
+                               from Insurance 
+                               group by LAT, LON
+                               having count(*) = 1)
+AND TIV_2015 IN (select TIV_2015
+                 from Insurance 
+                 group by TIV_2015
+                 having count(*) > 1)
+
+Q:31 
+
