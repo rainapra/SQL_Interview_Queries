@@ -29,20 +29,21 @@ order by count(s.id) desc
 LIMIT 2
 
 select dept_id, coalesce(count_total,0) from 
-(select d.dept_id, d.name, count(s.id) as count_total, dense_rank() over (partition by d.dept_id, order by count(s.id) desc)cnt
+(select d.dept_id, d.name, count(s.id) as count_total, dense_rank() over (partition by d.dept_id order by count(s.id) desc)cnt
  from students s right join departments d
  ON s.dept_id = d.dept_id
-group by d.dept_id, d.name )a
+ group by d.dept_id, d.name)a
 where cnt < 3
 
 
 Q:2 Find the five lowest-paid employees who have completed at least three projects.
 
 Note: We consider projects to be completed when they have an end date, which is the same as saying their End_dt is not NULL.
+
 employees table
 
-id	salary
-INTEGER	FLOAT
+id  salary
+
 projects table
 
 employee_id	project_id	Start_dt	End_dt
@@ -52,9 +53,9 @@ INTEGER	INTEGER	DATETIME	DATETIME
 select e.id
 from employees e JOIN projects p
 ON e.id = p.employee_id
+where p.End_dt is not null
 group by e.id
 having count(p.project_id)>=3
-and p.End_dt is not null
 order by e.salary
 LIMIT 5
 
@@ -70,7 +71,7 @@ and  o1.OrderDate = o2.OrderDate + 1
 and OrderId is NOT NULL
 
 
-Q:4 Countries 
+Q:4 Pair countries with each other 
 
 ID Country
 1 India
@@ -104,7 +105,7 @@ Q:5 Get the employee details who has higher salary than his manager
 E_ID	E_name	Dept	Salary	Manager_id
 1	Sara	A	25000	2
 2	Harsha	B	45000	5
-3	Rithvik  	A	30000	5
+3	Rithvik A	30000	5
 4	Kiana	A	35000	2
 5	Varsha	B	40000	4
 
@@ -118,7 +119,7 @@ Q:6 Find customer having highest total order for each month in the year 2023
 cid,  pid,  date, amount
 
 select month(date), cid, high_amount from (
-                select *, sum(amount) as high_amount, dense_rank() over (partition by month(date), order by sum(amount) desc) rn
+                select *, sum(amount) as high_amount, dense_rank() over (partition by month(date) order by sum(amount) desc) rn
                 from table
                 where YEAR(date) = ”2023”
                 group by month(date), cid)a
@@ -136,7 +137,7 @@ user_id	spend	transaction_date
 
 
 select user_id, spend, transaction_date from
-   (select user_id, spend, transaction_date, row_number() over (partition by user_id, order by transaction_date)rn
+   (select user_id, spend, transaction_date, row_number() over (partition by user_id order by transaction_date)rn
     from Table)T
 where rn = 3
 
@@ -155,7 +156,7 @@ ride_id	user_id	ride_date
 
 
 
-With cte_ride as (select user_id, ride_date, row_number() over (partition by user_id, order by ride_date)rn 
+With cte_ride as (select user_id, ride_date, row_number() over (partition by user_id order by ride_date)rn 
              from ride)
        
 select avg(ride_date - registration date)
@@ -276,7 +277,7 @@ order by total_mileage desc
 LIMIT 3
 
 select purpose, total_mileage from (
-select purpose, sum(miles) as total_mileage, dense_rank() over (partition by purpose, order by sum(miles) desc)rn
+select purpose, sum(miles) as total_mileage, dense_rank() over (partition by purpose order by sum(miles) desc)rn
 from uber_drives
 where category = "Business"
 AND purpose is NOT NULL)a
@@ -285,19 +286,19 @@ where rn <=3
 Q:14 cancellation rate of requests with unbanned users (both client and driver must not be banned) each day between "2013-10-01" and "2013-10-03"
 
 Trips
-Column Name  Type     
-Id           int      
-Client_Id    int      
-Driver_Id    int      
-City_Id      int      
-Status       enum     
-Request_at   date
+   
+Id               
+Client_Id         
+Driver_Id         
+City_Id          
+Status          
+Request_at   
        
 Users
-Column Name  Type     
-Users_Id     int      
-Banned       enum     
-Role         enum     
+   
+Users_Id        
+Banned           
+Role              
 
 select request_at, ROUND(SUM(IF(Status <> 'completed', 1, 0))/ count(Status),2) as cancellation rate
 from Trips
@@ -535,5 +536,705 @@ AND TIV_2015 IN (select TIV_2015
                  group by TIV_2015
                  having count(*) > 1)
 
-Q:31 
+Q:31 Write a query to find the overall acceptance rate of requests rounded to 2 decimals,
+ which is the number of acceptance divide the number of requests
+
+friend_request
+
+  sender_id  send_to_id  request_date
+ 
+  1          2           2016_06-01 
+  1          3           2016_06-01 
+  1          4           2016_06-01 
+  2          3           2016_06-02 
+  3          4           2016-06-09 
+
+request_accepted
+
+ requester_id  accepter_id  accept_date 
+ 
+  1             2            2016_06-03 
+  1             3            2016-06-08 
+  2             3            2016-06-08 
+  3             4            2016-06-09 
+  3             4            2016-06-10 
+
+
+select IFNULL((ROUND(acceptance/total_requests),2)),0) as acceptance_rate
+from (select count(distinct requester_id, accepter_id) as acceptance from request_accepted),
+     (select count(distinct r.sender_id, send_to_id) as total_requests from friend_request)
+
+Q: 32  Write an SQL query to display the records with three or more rows with consecutive
+ id's, and the number of people is greater than or equal to 100 for each.
+
+Stadium:
+ 
+ id    visit_date  people    
+
+  1     2017-01-01  10        
+  2     2017-01-02  109       
+  3     2017-01-03  150       
+  4     2017-01-04  99        
+  5     2017-01-05  145       
+  6     2017-01-06  1455      
+  7     2017-01-07  199       
+  8     2017-01-09  188   
+
+select *
+from Stadium s1 JOIN Stadium s2 JOIN Stadium s3
+ON (s1.id = s2.id + 1 AND s1.id = s3.id - 1)
+OR (s1.id = s2.id - 1 AND s1.id = s3.id - 2)
+OR (s1.id = s2.id + 1 AND s1.id = s3.id + 2)
+where s1.people >= 100
+and s2.people >= 100
+and s3.people >= 100
+order by s1.visit_date    
+
+Q: 33 Write a query to find the the people who has most friends and the most friends number
+
+request_accepted
+
+ requester_id  accepter_id  accept_date 
+ 
+  1             2            2016_06-03 
+  1             3            2016-06-08 
+  2             3            2016-06-08 
+  3             4            2016-06-09 
+
+select a.id, sum(a.count_id) as num
+from ((select requester_id as id, count(*) as count_id
+      from request_accepted
+      group by requester_id)
+      UNION ALL
+      (select accepter_id as id, count(*) as count_id
+       from request_accepted
+       group by accepter_id)) as a
+group by a.id
+order by num desc
+LIMIT 1
+
+Q:34 Write a query to print the node id and the type of the node Root, Leaf or Inner. Sort your output by the node id.
+
+Tree
+ id  p_id  
+  1   null 
+  2   1    
+  3   1    
+  4   2    
+  5   2  
+
+select t1.id, case when t1.p_id = "null" then "Root"
+                   when max(t2.id) = "null" then "Leaf" 
+                   else "Inner" end as Type
+from Tree t1 LEFT JOIN Tree t2
+ON t1.id = t2.p_id
+group by t1.id,  t1.p_id
+order by t1.id
+
+Q:35  Write an SQL query to report all the employees with their primary department. For employees who belong to one department, report their only department.
+Employee table:
+ 
+employee_id  department_id  primary_flag 
+ 
+ 1            1              N            
+ 2            1              Y            
+ 2            2              N            
+ 3            3              N            
+ 4            2              N            
+ 4            3              Y            
+ 4            4              N      
+
+select employee_id, department_id
+from Employee
+where primary_flag = 'Y'
+or employee_id IN (select employee_id 
+                      from Employee 
+                      group by employee_id 
+                      having count(department_id)=1)   
+
+Q:36   Write an SQL query to report the number of grand slam tournaments won by each player. Do not include the players who did not win any tournament.
+
+Players table: 
+player_id  player_name 
+ 
+  1          Nadal       
+  2          Federer     
+  3          Novak       
+
+Championships table:
+year  Wimbledon  Fr_open  US_open  Au_open 
+
+2018    1          1        1        1       
+2019    1          1        2        2       
+2020    2          1        2        2       
+
+select player_id, player_name, 
+    SUM((IF (Wimbledon = player_id,1,0) + IF(Fr_open = player_id,1,0) + IF(US_open = player_id,1,0) + IF (Au_open = player_id,1,0))) as slams_count
+from Players p JOIN Championship c
+ON p.player_id = c.Wimbledon or p.player_id = c.Fr_open or p.player_id = c.US_open or p.player_id = c.Au_open
+group by player_id
+
+
+Q:37 write a sql query to get the amount of each follower’s follower if he/she has one.
+
+followee    follower   
+ 
+   A          B  - 2    
+   B          C      
+   B          D   - 1   
+   D          E      
+
+
+select T1.follower, count(T2.follower)
+from Table T1 JOIN Table T2
+ON T1.follower = T2.followe
+group by T1.follower
+having count(T2.follower)>0
+
+Q:38 write a query to display the comparison result (higher/lower/same) of the average salary of employees in a department to the company’s average salary
+
+id  employee_id  amount  pay_date
+
+ 1   1            9000    2017-03-31 
+ 2   2            6000    2017-03-31 
+ 3   3            10000   2017-03-31 
+ 4   1            7000    2017-02-28 
+ 5   2            6000    2017-02-28 
+ 6   3            8000    2017-02-28 
+
+employee_id  department_id 
+
+ 1           1             
+ 2           2             
+ 3           2             
+
+with avg_dept as (select d.department_id, e.employee_id, avg(e.amount) as avg_empl_dept
+from Dept d LEFT JOIN Empl e
+ON d.employee_id = e.employee_id
+group by d.department_id, e.employee_id),
+
+comp_avg as (select employee_id, avg(amount) as avg_comp
+from Employee 
+group by employee_id)
+
+select a.avg_empl_dept, ca.avg_comp, (case when a.avg_empl_dept > ca.avg_comp then "Higher",
+                                          when a.avg_empl_dept < ca.avg_comp then "Lower",
+                                          when a.avg_empl_dept = ca.avg_comp then "Same" end) as comparison
+from avg_sept a JOIN comp_avg ca
+ON a.employee_id = ca.employee_id
+
+
+Q:39 Write a query to find how many unique calendar days each employee worked. Order your query by the employee_id
+
+projects
+emp_id	project_id   start_date	     end_date
+1	1	     2024-01-01	      2024-01-06
+1	2	     2024-01-03	      2024-01-07
+
+PostGres
+with days_count as (
+select employee_id, generate_series(start_date, end_date, INTERVAL 1 DAY) as days
+from projects
+)
+
+select employee_id, count (DISTINCT days) as unique_days_worked
+from days_count
+group by employee_id
+order by employee_id
+
+MySQL
+WITH RECURSIVE DateRange AS (
+  -- Base case: start from each employee's start date
+  SELECT employee_id, start_date AS work_date, end_date
+  FROM projects
+  
+  UNION ALL
+  
+  -- Recursive case: keep adding one day until the end date
+  SELECT employee_id, work_date + INTERVAL 1 DAY, end_date
+  FROM DateRange
+  WHERE work_date < end_date
+)
+-- Count distinct work dates for each employee
+SELECT employee_id, 
+       COUNT(DISTINCT work_date) AS unique_days_worked
+FROM DateRange
+GROUP BY employee_id
+ORDER BY employee_id;
+
+ 
+Q:40 Write an SQL query to find the price of each product in each store
+
+Products
+
+product_id   store   price 
+
+0           store1  95    
+0           store3  105   
+0           store2  100   
+1           store1  70    
+1           store3  80    
+
+Result: product_id  | store1 | store2 | store3
+
+
+select product_id, SUM(CASE when store = "store1" then price end) as store1, 
+                   SUM(CASE when store = "store2" then price end) as store2, 
+                   SUM(CASE when store = "store3" then price end) as store3 
+from Products
+group by product_id
+
+
+Q:41  SQL query to find the account_id of the accounts that should be banned from Leetflex. An account should be banned if it was logged in at some moment from two
+ different IP addresses
+ 
+LogInfo
+account_id | ip_address | login | logout
+
+SELECT DISTINCT l1.account_id
+FROM LogInfo l1
+JOIN LogInfo l2 ON l1.account_id = l2.account_id
+WHERE l1.ip_address <> l2.ip_address
+AND (l1.login BETWEEN l2.login AND l2.logout
+     OR l1.logout BETWEEN l2.login AND l2.logout);
+
+select DISTINCT account_id
+from LogInfo l1, LogInfo l2
+where l1.account_id = l2.account_id
+and l1.ip_address <> l2.ip_address
+and( l1.login = l2.login or l1.logout = l2.logout or l1.login = l2.logout)
+or (l1.login < l2.login and l1.logout > l2.login)
+
+
+SELECT account_id
+FROM LogInfo
+GROUP BY account_id, ip_address
+HAVING COUNT(DISTINCT ip_address) > 1 
+AND EXISTS (
+    SELECT 1
+    FROM LogInfo AS l2
+    WHERE LogInfo.account_id = l2.account_id
+    AND LogInfo.ip_address <> l2.ip_address
+    AND (LogInfo.login BETWEEN l2.login AND l2.logout 
+         OR LogInfo.logout BETWEEN l2.login AND l2.logout)
+);
+
+
+Q:42 Write an SQL query to report the ids and the names of all managers, the number of employees who report directly to them, and the average age of the reports rounded to the nearest integer
+
+Employees table:
+
+employee_id  name    reports_to  age 
+
+9           Hercy     null        43  
+6           Alice     9           41  
+4           Bob       9           36  
+2           Winston   null        37  
+
+
+SELECT E1.employee_id,
+       E1.name,
+       COUNT(E2.employee_id) AS reports_count,
+       ROUND(AVG(E2.age), 0) AS average_age
+FROM Employees E1
+LEFT JOIN Employees E2
+ON E1.employee_id = E2.reports_to
+GROUP BY E1.employee_id, E1.name
+ORDER BY E1.employee_id;
+
+Q:43 SQL query to count the number of apples and oranges in all the boxes. If a box contains a chest, you should also include the number of apples and oranges it has
+
+Boxes table:
+ +--------+----------+-------------+--------------+
+ | box_id | chest_id | apple_count | orange_count |
+ +--------+----------+-------------+--------------+
+ | 2      | null     | 6           | 15           |
+ | 18     | 14       | 4           | 15           |
+ | 19     | 3        | 8           | 4            |
+ | 12     | 2        | 19          | 20           |
+ | 20     | 6        | 12          | 9            |
+ | 8      | 6        | 9           | 9            |
+ | 3      | 14       | 16          | 7            |
+
+
+Chests table:
++----------+-------------+--------------+
+ | chest_id | apple_count | orange_count |
+ +----------+-------------+--------------+
+ | 6        | 5           | 6            |
+ | 14       | 20          | 10           |
+ | 2        | 8           | 8            |
+ | 3        | 19          | 4            |
+ | 16       | 19          | 19           
+
+select SUM(IFNULL(b.apple_count,0) + IFNULL(c.apple_count,0)) as apple_count, SUM(IFNULL(b.orange_count,0) + IFNULL(c.orange_count,0)) as orange_count
+from Boxes b LEFT JOIN Chests c
+ON b.chest_id = c.chest_id
+
+Q:44 SQL query that will, for each user_id , find out the largest window of days between each visit and the one right after it (or today if you are considering the last visit).Return the result table ordered by user_id. Assume today's date is '2021-1-1'
+
+UserVisits table:
+ +---------+------------+
+ | user_id | visit_date |
+ +---------+------------+
+ | 1       | 2020-11-28 |
+ | 1       | 2020-10-20 |
+ | 1       | 2020-12-3  |
+ | 2       | 2020-10-5  |
+ | 2       | 2020-12-9  |
+ | 3       | 2020-11-11 
+
+
+WITH both_dates as(
+select user_id, visit_date, LEAD(visit_date,1,'2021-1-1') over (partition by user_id order by visit_date)as next_date, 
+from UserVisits)
+
+select user_id, MAX(datediff(next_date, visit_date)) as largest_window
+from both_dates
+group by user_id
+order by user_id
+
+1   2020-11-28   2020-10-20  39
+1   2020-10-20   2020-12-3   45
+1   2020-12-3    2021-1-1    27
+
+
+Q:45  write a SQL query to find the biggest number, which only appears once.
+
+|num|
+ +---+
+ | 8 |
+ | 8 |
+ | 3 |
+ | 3 |
+ | 1 |
+ | 4 |
+ | 5 |
+ | 6 |
+
+Wih cte_once as (select num, count(num) as cnt
+                 from Table
+                 group by num
+                 having count(num)=1)
+
+select MAX(num) from cte
+
+Q:46 write a SQL query to change seats for the adjacent students
+
+id    student
+1     Abbot   
+2     Doris   
+3     Emerson 
+4     Green   
+5     Jeames 
+
+Update table t1
+JOIN table t2
+ON t1.id = t2.id+1
+set t1.student = t2.student,
+t2.student = t1.student
+where t1.id % 2 <> 0
+
+
+Q:47 Write an SQL query for a report that provides the customer ids from the Customer table that bought all the products in the Product table
+
+ Customer table:
+
+customer_id  product_key 
+ 1            5           
+ 2            6           
+ 3            5           
+ 3            6           
+ 1            6           
+
+
+Product table:
+product_key
+5           
+6      
+
+select customer_id
+from Customer
+group by customer_id
+having count(DISTINCT product_key) = select count(product_key) from Product
+
+Q:48 Write a SQL query for a report that provides the pairs (actor_id, director_id) where the actor have cooperated with the director at least 3 times
+
+
+ ActorDirector table:
+ | actor_id    | director_id | timestamp   |
+ | 1           | 1           | 0           |
+ | 1           | 1           | 1           |
+ | 1           | 1           | 2           |
+ | 1           | 2           | 3           |
+ | 1           | 2           | 4           |
+ | 2           | 1           | 5           |
+ | 2           | 1           | 6           
+
+select actor_id,director_id 
+from ActorDirector 
+group by actor_id, director_id 
+having count(*) >= 3
+
+Q:49 Write an SQL query that selects the product id, year, quantity, and price for the first year of every product sold
+
+Sales table:
+ +---------+------------+------+----------+-------+
+ | sale_id | product_id | year | quantity | price |
+ +---------+------------+------+----------+-------+
+ | 1       | 100        | 2008 | 10       | 5000  |
+ | 2       | 100        | 2009 | 12       | 5000  |
+ | 7       | 200        | 2011 | 15       | 9000  |
+
+ Product table:
+ +------------+--------------+
+ | product_id | product_name |
+ +------------+--------------+
+ | 100        | Nokia        |
+ | 200        | Apple        |
+ | 300        | Samsung      |
+
+WITH first_year as (select product_id, MIN(year)
+from Sales
+group by product_id)
+
+select product_id, year, quantity, price
+from first_year fy JOIN Sales s
+ON fy.product_id = s.product_id
+group by product_id, year
+
+
+Q:50 Write an SQL query that reports all the projects that have the most employees.
+
+Project table:
+project_id   employee_id 
+1            1           
+1            2           
+1            3           
+2            1           
+2            4           
+
+Employee table:
+
+employee_id  name    experience_years 
+1           Khaled    3                
+2           Ali       2                
+3           John      1                
+4           Doe       2                
+
+select project_id from (
+select project_id, count(employee_id), dense_rank() over (partition by project_id order by count(employee_id)desc) as rnk
+from Project)a
+where a.rank = 1
+
+Q:51 Write an SQL query that reports the most experienced employees in each project. In case of a tie, report all employees with the maximum number of experience years
+
+With exp_years as(select project_id, MAX(experience_years) as years
+                  from Project p JOIN Employee e
+                  ON p.employee_id = e.employee_id
+                  group by project_id)
+                 
+select project_id, employee_id
+from exp_years ex JOIN Project p
+ON ex.project_id = p.project_id
+group by project_id
+
+Q:52 Write an SQL query that reports the best seller by total sales price, If there is a tie, report them all.
+
+ Product table:
+product_id product_name  unit_price 
+1          S8            1000       
+2          G4            800        
+3          iPhone        1400       
+ 
+ Sales table:
+seller_id  product_id  buyer_id  sale_date   quantity  price 
+1           1           1        2019-01-21    2       2000  
+1           2           2        2019-02-17    1       800   
+2           2           3        2019-06-02    1       800   
+3           3           4        2019-05-13    2       2800  
+
+
+select seller_id, total_sales from(
+select seller_id, SUM(price) as total_sales, dense_rank() over (partition by seller_id order by SUM(price) desc)as rn
+from Sales
+group by seller_id)a
+where a.rn = 1
+
+Q:53  Write an SQL query that reports the buyers who have bought S8 but not iPhone. Note that S8 and iPhone are products present in the Product table.
+
+select DISTINCT buyer_id
+from Sales s LEFT JOIN Product p
+ON s.product_id = p.product_id
+where p.product_name = "S8"
+and buyer_id NOT IN (select buyer_id
+                     from Sales s LEFT JOIN Product p
+                     ON s.product_id = p.product_id
+                     where p.product_name = "iPhone")
+
+Q:54 Reports products that were only sold in spring 2019 That is, between 2019-01-01 and 2019-03-31 inclusive. Select the product that were only sold in spring 2019
+
+select DISTINCT s.product_id, p.product_name
+from Sales s LEFT JOIN Product p
+ON p.product_id = s.product_id
+where sale_date between "2019-01-01" AND "2019-03-31"
+EXCEPT
+select DISTINCT s.product_id, p.product_name
+from Sales s LEFT JOIN Product p
+ON p.product_id = s.product_id
+where sale_date < "2019-01-01" 
+or sale_date > "2019-03-31"
+
+Q:56  Write an SQL query that reports for each install date, the number of players that installed the game on that day and the day 1 retention
+
+Activity table:
+player_id  device_id  event_date  games_played
+1          2          2016-03-01  5            
+1          2          2016-03-02  6            
+2          3          2017-06-25  1            
+3          1          2016-03-01  0            
+3          4          2016-07-03  5            
+
+with first_login as (select player_id, MIN(event_date) as install_date
+                     from Activity
+                     group by player_id)
+
+
+select fl.install_date, count(fl.player_id) as installs,
+   SUM(CASE when  a.event_date IS NOT NULL then 1 else 0 end)/count(fl.player_id) as retention
+from first_login fl LEFT JOIN Activity a
+ON fl.player_id = a.player_id
+AND DATEDIFF(a.event_date,fl.install_date) = 1
+group by fl.install_date
+
+Q:57 Write an SQL query that reports the books that have sold less than 10 copies in the last year, excluding books that have been available for less than 1 month from today. Assume today is 2019-06-23
+
+Books table:
+book_id   name                available_from 
+1        "Kalila And Demna"   2010-01-01     
+2        "28 Letters"         2012-05-12     
+3        "The Hobbit"         2019-06-10     
+4        "13 Reasons Why"     2019-06-01     
+5        "The Hunger Games"   2008-09-21     
+ 
+Orders table:
+order_id  book_id  quantity  dispatch_date
+1         1        2         2018-07-26    
+2         1        1         2018-11-05    
+3         3        8         2019-06-11    
+4         4        6         2019-06-05    
+5         4        5         2019-06-20    
+6         5        9         2009-02-02    
+7         5        8         2010-04-13    
+
+
+select b.book_id, b.name
+from Books b LEFT JOIN Orders o
+ON b.book_id = o.book_id
+where dispatch_date between "2018-06-23" and "2019-06-23"
+or dispatch_date is NOT NULL
+group by b.book_id
+having SUM(quantity) < 10
+and b.book_id NOT IN (Select book_id from Books
+                      where DATEDIFF("2019-06-23", available_from) < 30)
+
+Q:58  SQL query that reports for every date within at most 90 days from today, the number of users that logged in for the first time on that date. Assume today is 2019-06-30
+
+Traffic table:
+
+ | user_id | activity | activity_date |
+
+ | 1       | login    | 2019-05-01    |
+ | 1       | homepage | 2019-05-01    |
+ | 1       | logout   | 2019-05-01    |
+ | 2       | login    | 2019-06-21    |
+ | 2       | logout   | 2019-06-21    |
+ | 3       | login    | 2019-01-01    |
+ | 3       | jobs     | 2019-01-01    |
+ | 3       | logout   | 2019-01-01    |
+ | 4       | login    | 2019-06-21    |
+ | 4       | groups   | 2019-06-21    |
+ | 4       | logout   | 2019-06-21    |
+ | 5       | login    | 2019-03-01    |
+ | 5       | logout   | 2019-03-01    |
+ | 5       | login    | 2019-06-21    |
+ | 5       | logout   | 2019-06-21    |
+
+WITH first_login as (select user_id, MIN(activity_date) as login_date
+                     from Traffic
+                     where activity = "login"
+                     group by user_id)
+
+
+select login_date, count(user_id)
+from first_login
+where DATEDIFF('2019-06-30', login_date) <= 90
+group by login_date
+
+Q:59 Write a SQL query to find the highest grade with its corresponding course for each student. In case of a tie, you should find the course with the smallest course_id. The output must be sorted by increasing student_id
+
+Enrollments table:
+student_id  course_id  grade 
+ 2           2          95    
+ 2           3          95    
+ 1           1          90    
+ 1           2          99    
+ 3           1          80    
+ 3           2          75    
+ 3           3          82    
+
+select student_id, course_id, grade from (
+select student_id, course_id, grade, dense_rank() over (partition by student_id order by grade desc, course_id)rn
+from Enrollments) a
+where a.rn = 1
+group by student_id
+order by student_id
+
+Q:60 Write an SQL query that reports the number of posts reported yesterday for each report reason. Assume today is 2019-07-05.
+
+Actions table:
+user_id  post_id  action_date  action  extra  
+1        1        2019-07-01   view    null   
+1        1        2019-07-01   like    null   
+1        1        2019-07-01   share   null   
+2        4        2019-07-04   view    null   
+2        4        2019-07-04   report  spam   
+3        4        2019-07-04   view    null   
+3        4        2019-07-04   report  spam   
+4        3        2019-07-02   view    null   
+4        3        2019-07-02   report  spam   
+5        2        2019-07-04   view    null   
+5        2        2019-07-04   report  racism 
+5        5        2019-07-04   view    null   
+5        5        2019-07-04   report  racism 
+
+select extra as Report_reason, count(DISTINCT post_id) as number_posts
+from Actions
+where action = "report"
+and action_date = DATE_SUB('2019-07-05', INTERVAL 1 DAY)
+group by extra
+
+Q:61 Assume you have following tables. Find each customers favorite ‘Vendor Code’ by Sales.
+
+Transaction: Sales, ContactKey, TransactionDateKey, Vendor_Key
+
+Vendor: Vendor_Key, VendorCode
+
+Contact: CustomerID, ContactKey
+ 
+Given: TransactionDateKey, you can take 1 FY 
+
+Expected Output: 
+CustomerID, VendorCode
+
+Select CustomerID, VendorCode from (
+Select CustomerID, VendorCode, SUM(Sales) as total_sales, dense_rank() over (partition by CustomerID order by SUM(Sales) desc)rn
+From Contact c JOIN Transaction t
+ON c. ContactKey = t. ContactKey
+JOIN Vendor v
+ON v. Vendor_Key = t. Vendor_Key
+Where TransactionDateKey = “2022”
+Group by CustomerID, VendorCode)a
+where a.rn = 1
+
 
